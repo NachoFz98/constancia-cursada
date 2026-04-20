@@ -55,12 +55,13 @@ export function buildCertificateText(data: CertificateData) {
   else if (data.programType === "diplomatura") programLabel = "la diplomatura de";
   else programLabel = "el curso de";
 
+  const daysLower = data.days.map((d) => d.toLowerCase());
   const daysText =
     data.programType === "diplomatura"
-      ? `con días de cursada ${joinDays(data.days)}`
-      : `con día de cursada ${data.days[0] ?? ""}`;
+      ? `con días de cursada los ${joinDays(daysLower)}`
+      : `con día de cursada los ${daysLower[0] ?? ""}`;
 
-  return `Por medio de la presente, se deja constancia de que ${studentLabel} ${data.fullName}, con número de ${data.docType} ${data.docNumber}, realizó ${programLabel} ${data.programName} con fecha de inicio ${formatLongDate(data.startDate)} y finalización ${formatLongDate(data.endDate)}, ${daysText} en el horario de ${data.startTime} a ${data.endTime} hs (hora argentina).`;
+  return `Por medio de la presente, se deja constancia de que ${studentLabel} ${data.fullName}, con número de ${data.docType} ${data.docNumber}, realizó ${programLabel} ${data.programName} con fecha de inicio el ${formatLongDate(data.startDate)} y finalización el ${formatLongDate(data.endDate)}, ${daysText} en el horario de ${data.startTime} a ${data.endTime} hs (hora argentina).`;
 }
 
 export function generateCertificatePdf(data: CertificateData) {
