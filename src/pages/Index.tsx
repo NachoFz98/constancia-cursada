@@ -31,7 +31,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { generateCertificatePdf } from "@/lib/certificate";
 
-const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
 const schema = z
   .object({
@@ -106,7 +106,7 @@ const Index = () => {
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Generador de Constancias
+              Generador de Constancia de cursada
             </h1>
             <p className="text-sm text-muted-foreground">
               Completá los datos y descargá la constancia en PDF.
@@ -117,9 +117,6 @@ const Index = () => {
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Datos de la constancia</CardTitle>
-            <CardDescription>
-              El archivo se descargará con el nombre del email del estudiante.
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -347,7 +344,7 @@ const Index = () => {
                 <div className="flex justify-end pt-2">
                   <Button type="submit" disabled={submitting} size="lg" className="gap-2">
                     <Download className="h-4 w-4" />
-                    {submitting ? "Generando..." : "Generar PDF"}
+                    {submitting ? "Generando..." : "Generar constancia"}
                   </Button>
                 </div>
               </form>
