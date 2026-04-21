@@ -85,7 +85,7 @@ const Index = () => {
   const onSubmit = async (values: FormValues) => {
     try {
       setSubmitting(true);
-      generateCertificatePdf(values as Required<FormValues>);
+      await generateCertificatePdf(values as Required<FormValues>);
       toast.success("Constancia generada", {
         description: `Se descargó el archivo ${values.email}.pdf`,
       });

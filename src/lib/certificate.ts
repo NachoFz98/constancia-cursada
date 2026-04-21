@@ -64,23 +64,58 @@ export function buildCertificateText(data: CertificateData) {
   return `Por medio de la presente, se deja constancia de que ${studentLabel} ${data.fullName}, con número de ${data.docType} ${data.docNumber}, realizó ${programLabel} ${data.programName} con fecha de inicio el ${formatLongDate(data.startDate)} y finalización el ${formatLongDate(data.endDate)}, ${daysText} en el horario de ${data.startTime} a ${data.endTime} hs (hora argentina).`;
 }
 
-export function generateCertificatePdf(data: CertificateData) {
+async function loadImageAsBase64(imagePath: string): Promise<string | null> {
+  try {
+    const response = await fetch(imagePath);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn("No se pudo cargar la imagen del logo:", e);
+    return null;
+  }
+}
+
+export async function generateCertificatePdf(data: CertificateData) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 56;
   const contentWidth = pageWidth - margin * 2;
 
-  // ---------- Logo placeholder ----------
+  // ---------- Logo ----------
   const logoH = 56;
   const logoW = 140;
-  doc.setDrawColor(200);
-  doc.setFillColor(245, 247, 250);
-  doc.rect(margin, margin, logoW, logoH, "FD");
-  doc.setFontSize(10);
-  doc.setTextColor(120);
-  doc.setFont("helvetica", "italic");
-  doc.text("[ LOGO ]", margin + logoW / 2, margin + logoH / 2 + 3, { align: "center" });
+  
+  // Cargar imagen desde public/logo.svg
+  const imageBase64 = await loadImageAsBase64("/constancia-cursada/logo.svg");
+  
+  if (imageBase64) {
+    try {
+      doc.addImage(imageBase64, "SVG", margin, margin, logoW, logoH);
+    } catch (e) {
+      // Si falla, mostrar placeholder
+      doc.setDrawColor(200);
+      doc.setFillColor(245, 247, 250);
+      doc.rect(margin, margin, logoW, logoH, "FD");
+      doc.setFontSize(10);
+      doc.setTextColor(120);
+      doc.setFont("helvetica", "italic");
+      doc.text("[ LOGO ]", margin + logoW / 2, margin + logoH / 2 + 3, { align: "center" });
+    }
+  } else {
+    // Placeholder si no hay imagen
+    doc.setDrawColor(200);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(margin, margin, logoW, logoH, "FD");
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.setFont("helvetica", "italic");
+    doc.text("[ LOGO ]", margin + logoW / 2, margin + logoH / 2 + 3, { align: "center" });
+  }
 
   // ---------- Header line ----------
   const headerY = margin + logoH + 28;
