@@ -64,52 +64,87 @@ export function buildCertificateText(data: CertificateData) {
   return `Por medio de la presente, se deja constancia de que ${studentLabel} ${data.fullName}, con número de ${data.docType} ${data.docNumber}, realizó ${programLabel} ${data.programName} con fecha de inicio el ${formatLongDate(data.startDate)} y finalización el ${formatLongDate(data.endDate)}, ${daysText} en el horario de ${data.startTime} a ${data.endTime} hs (hora argentina).`;
 }
 
-async function loadImageAsBase64(imagePath: string): Promise<string | null> {
+async function fetchSvgAsPng(svgPath: string, targetWidth = 560): Promise<string | null> {
   try {
-    const response = await fetch(imagePath);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error("FileReader error"));
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    console.warn(`No se pudo cargar la imagen: ${imagePath}`, e);
-    return null;
-  }
-}
+    const candidates = svgPath.startsWith("http")
+      ? [svgPath]
+      : [
+          svgPath,
+          `${window.location.origin}${svgPath}`,
+          `${import.meta.env.BASE_URL}${svgPath.replace(/^\//, "")}`,
+        ];
 
-async function svgToBase64PNG(svgPath: string): Promise<string | null> {
-  try {
-    const svgData = await loadImageAsBase64(svgPath);
-    if (!svgData) return null;
-
-    // Crear imagen y canvas para convertir SVG a PNG
-    const img = new Image();
-    img.src = svgData;
-
-    return new Promise((resolve) => {
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width || 200;
-        canvas.height = img.height || 200;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve(null);
-          return;
+    let svgText: string | null = null;
+    for (const url of candidates) {
+      try {
+        const r = await fetch(url);
+        if (r.ok) {
+          svgText = await r.text();
+          break;
         }
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        // try next
+      }
+    }
+    if (!svgText) {
+      console.warn("Logo no encontrado en ninguna ruta:", candidates);
+      return null;
+    }
+
+    // Extraer dimensiones del SVG
+    const widthMatch = svgText.match(/\bwidth\s*=\s*"([\d.]+)"/);
+    const heightMatch = svgText.match(/\bheight\s*=\s*"([\d.]+)"/);
+    const viewBoxMatch = svgText.match(/viewBox\s*=\s*"([\d.\s-]+)"/);
+    let svgW = widthMatch ? parseFloat(widthMatch[1]) : 0;
+    let svgH = heightMatch ? parseFloat(heightMatch[1]) : 0;
+    if ((!svgW || !svgH) && viewBoxMatch) {
+      const parts = viewBoxMatch[1].trim().split(/\s+/).map(parseFloat);
+      svgW = svgW || parts[2];
+      svgH = svgH || parts[3];
+    }
+    if (!svgW || !svgH) {
+      svgW = 800;
+      svgH = 200;
+    }
+
+    const scale = targetWidth / svgW;
+    const canvasW = Math.round(svgW * scale * 2); // 2x for retina sharpness
+    const canvasH = Math.round(svgH * scale * 2);
+
+    const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvasW;
+          canvas.height = canvasH;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            URL.revokeObjectURL(url);
+            return resolve(null);
+          }
+          ctx.drawImage(img, 0, 0, canvasW, canvasH);
+          const png = canvas.toDataURL("image/png");
+          URL.revokeObjectURL(url);
+          resolve(png);
+        } catch (e) {
+          console.warn("Error renderizando SVG:", e);
+          URL.revokeObjectURL(url);
+          resolve(null);
+        }
       };
-      img.onerror = () => {
-        console.warn("Error renderizando SVG a canvas");
+      img.onerror = (e) => {
+        console.warn("Error cargando SVG en <img>:", e);
+        URL.revokeObjectURL(url);
         resolve(null);
       };
+      img.src = url;
     });
   } catch (e) {
-    console.warn("Error en svgToBase64PNG:", e);
+    console.warn("fetchSvgAsPng error:", e);
     return null;
   }
 }
@@ -123,22 +158,25 @@ export async function generateCertificatePdf(data: CertificateData) {
 
   // ---------- Logo ----------
   const logoH = 56;
-  const logoW = 140;
-  
-  // Intentar cargar PNG primero, luego convertir SVG a PNG
-  let imageBase64 = await loadImageAsBase64("/constancia-cursada/logo.png");
-  
-  if (!imageBase64) {
-    // Si no hay PNG, convertir SVG a PNG
-    imageBase64 = await svgToBase64PNG("/constancia-cursada/logo.svg");
-  }
-  
+  const logoW = 160;
+
+  const imageBase64 = await fetchSvgAsPng("/logo.svg", 600);
+
   if (imageBase64) {
     try {
-      doc.addImage(imageBase64, "PNG", margin, margin, logoW, logoH);
+      // Mantener proporción real del logo
+      const img = new Image();
+      img.src = imageBase64;
+      await new Promise((r) => {
+        img.onload = () => r(null);
+        img.onerror = () => r(null);
+      });
+      const ratio = img.width && img.height ? img.width / img.height : logoW / logoH;
+      const finalW = logoW;
+      const finalH = finalW / ratio;
+      doc.addImage(imageBase64, "PNG", margin, margin, finalW, finalH);
     } catch (e) {
       console.error("Error al insertar imagen:", e);
-      // Si falla, mostrar placeholder
       doc.setDrawColor(200);
       doc.setFillColor(245, 247, 250);
       doc.rect(margin, margin, logoW, logoH, "FD");
@@ -148,7 +186,6 @@ export async function generateCertificatePdf(data: CertificateData) {
       doc.text("[ LOGO ]", margin + logoW / 2, margin + logoH / 2 + 3, { align: "center" });
     }
   } else {
-    // Placeholder si no hay imagen
     doc.setDrawColor(200);
     doc.setFillColor(245, 247, 250);
     doc.rect(margin, margin, logoW, logoH, "FD");
