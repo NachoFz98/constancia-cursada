@@ -57,23 +57,34 @@ export function buildCertificateText(data: CertificateData) {
   return `Por medio de la presente, se deja constancia de que ${studentLabel} ${data.fullName}, con número de ${data.docType} ${data.docNumber}, realizó ${programLabel} ${data.programName} con fecha de inicio el ${formatLongDate(data.startDate)} y finalización el ${formatLongDate(data.endDate)}, ${daysText} en el horario de ${data.startTime} a ${data.endTime} hs (hora argentina).`;
 }
 
+/**
+ * Convierte el SVG a PNG base64 usando la ruta absoluta del origen.
+ * crossOrigin 'anonymous' es clave para evitar errores de seguridad.
+ */
 async function svgToBase64PNG(svgPath: string): Promise<string | null> {
   try {
-    const response = await fetch(svgPath);
+    // Aseguramos la ruta absoluta
+    const fullPath = svgPath.startsWith('http') ? svgPath : `${window.location.origin}${svgPath}`;
+    const response = await fetch(fullPath);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
     const svgText = await response.text();
     const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(svgBlob);
 
     return new Promise((resolve) => {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth || 500;
-        canvas.height = img.naturalHeight || 200;
+        canvas.width = (img.naturalWidth || 500) * 2;
+        canvas.height = (img.naturalHeight || 200) * 2;
         const ctx = canvas.getContext("2d");
-        if (!ctx) return resolve(null);
-        ctx.drawImage(img, 0, 0);
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          return resolve(null);
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         const pngBase64 = canvas.toDataURL("image/png");
         URL.revokeObjectURL(url);
         resolve(pngBase64);
@@ -85,7 +96,7 @@ async function svgToBase64PNG(svgPath: string): Promise<string | null> {
       img.src = url;
     });
   } catch (e) {
-    console.warn("Error en la imagen:", e);
+    console.warn("Error cargando logo:", e);
     return null;
   }
 }
@@ -106,9 +117,10 @@ export async function generateCertificatePdf(data: CertificateData) {
   const margin = 56;
   const contentWidth = pageWidth - margin * 2;
 
-  // ---------- Logo (RUTA CORREGIDA) ----------
+  // ---------- Logo ----------
   const logoH = 50;
   const logoW = 130;
+  // Usamos ruta absoluta desde la raíz
   const imageBase64 = await svgToBase64PNG("/logo.svg");
   
   if (imageBase64) {
