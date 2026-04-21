@@ -81,6 +81,39 @@ async function loadImageAsBase64(imagePath: string): Promise<string | null> {
   }
 }
 
+async function svgToBase64PNG(svgPath: string): Promise<string | null> {
+  try {
+    const svgData = await loadImageAsBase64(svgPath);
+    if (!svgData) return null;
+
+    // Crear imagen y canvas para convertir SVG a PNG
+    const img = new Image();
+    img.src = svgData;
+
+    return new Promise((resolve) => {
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width || 200;
+        canvas.height = img.height || 200;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.onerror = () => {
+        console.warn("Error renderizando SVG a canvas");
+        resolve(null);
+      };
+    });
+  } catch (e) {
+    console.warn("Error en svgToBase64PNG:", e);
+    return null;
+  }
+}
+
 export async function generateCertificatePdf(data: CertificateData) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -92,18 +125,17 @@ export async function generateCertificatePdf(data: CertificateData) {
   const logoH = 56;
   const logoW = 140;
   
-  // Intentar cargar PNG primero (más compatible con jsPDF), luego SVG
+  // Intentar cargar PNG primero, luego convertir SVG a PNG
   let imageBase64 = await loadImageAsBase64("/constancia-cursada/logo.png");
-  let imageFormat = "PNG";
   
   if (!imageBase64) {
-    imageBase64 = await loadImageAsBase64("/constancia-cursada/logo.svg");
-    imageFormat = "PNG"; // jsPDF maneja mejor SVG si lo trata como PNG
+    // Si no hay PNG, convertir SVG a PNG
+    imageBase64 = await svgToBase64PNG("/constancia-cursada/logo.svg");
   }
   
   if (imageBase64) {
     try {
-      doc.addImage(imageBase64, imageFormat, margin, margin, logoW, logoH);
+      doc.addImage(imageBase64, "PNG", margin, margin, logoW, logoH);
     } catch (e) {
       console.error("Error al insertar imagen:", e);
       // Si falla, mostrar placeholder
