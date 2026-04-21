@@ -67,14 +67,16 @@ export function buildCertificateText(data: CertificateData) {
 async function loadImageAsBase64(imagePath: string): Promise<string | null> {
   try {
     const response = await fetch(imagePath);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("FileReader error"));
       reader.readAsDataURL(blob);
     });
   } catch (e) {
-    console.warn("No se pudo cargar la imagen del logo:", e);
+    console.warn(`No se pudo cargar la imagen: ${imagePath}`, e);
     return null;
   }
 }
@@ -90,13 +92,20 @@ export async function generateCertificatePdf(data: CertificateData) {
   const logoH = 56;
   const logoW = 140;
   
-  // Cargar imagen desde public/logo.svg
-  const imageBase64 = await loadImageAsBase64("/constancia-cursada/logo.svg");
+  // Intentar cargar PNG primero (más compatible con jsPDF), luego SVG
+  let imageBase64 = await loadImageAsBase64("/constancia-cursada/logo.png");
+  let imageFormat = "PNG";
+  
+  if (!imageBase64) {
+    imageBase64 = await loadImageAsBase64("/constancia-cursada/logo.svg");
+    imageFormat = "PNG"; // jsPDF maneja mejor SVG si lo trata como PNG
+  }
   
   if (imageBase64) {
     try {
-      doc.addImage(imageBase64, "SVG", margin, margin, logoW, logoH);
+      doc.addImage(imageBase64, imageFormat, margin, margin, logoW, logoH);
     } catch (e) {
+      console.error("Error al insertar imagen:", e);
       // Si falla, mostrar placeholder
       doc.setDrawColor(200);
       doc.setFillColor(245, 247, 250);
