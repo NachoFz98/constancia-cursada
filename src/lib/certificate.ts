@@ -157,14 +157,27 @@ export async function generateCertificatePdf(data: CertificateData) {
   const contentWidth = pageWidth - margin * 2;
 
   // ---------- Logo ----------
-  const logoH = 56;
-  const logoW = 160;
+  // 3/4 del ancho de página, centrado horizontalmente. Misma posición vertical (margin top).
+  const logoW = pageWidth * 0.75;
+  const logoH = 80; // alto máximo de referencia/placeholder
 
-  const imageBase64 = await fetchSvgAsPng("/logo.svg", 600);
+  const imageBase64 = await fetchSvgAsPng("/logo.svg", 1200);
+
+  const drawPlaceholder = () => {
+    const x = (pageWidth - logoW) / 2;
+    doc.setDrawColor(200);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(x, margin, logoW, logoH, "FD");
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.setFont("helvetica", "italic");
+    doc.text("[ LOGO ]", pageWidth / 2, margin + logoH / 2 + 3, { align: "center" });
+  };
+
+  let renderedLogoH = logoH;
 
   if (imageBase64) {
     try {
-      // Mantener proporción real del logo
       const img = new Image();
       img.src = imageBase64;
       await new Promise((r) => {
@@ -174,29 +187,19 @@ export async function generateCertificatePdf(data: CertificateData) {
       const ratio = img.width && img.height ? img.width / img.height : logoW / logoH;
       const finalW = logoW;
       const finalH = finalW / ratio;
-      doc.addImage(imageBase64, "PNG", margin, margin, finalW, finalH);
+      const x = (pageWidth - finalW) / 2;
+      doc.addImage(imageBase64, "PNG", x, margin, finalW, finalH);
+      renderedLogoH = finalH;
     } catch (e) {
       console.error("Error al insertar imagen:", e);
-      doc.setDrawColor(200);
-      doc.setFillColor(245, 247, 250);
-      doc.rect(margin, margin, logoW, logoH, "FD");
-      doc.setFontSize(10);
-      doc.setTextColor(120);
-      doc.setFont("helvetica", "italic");
-      doc.text("[ LOGO ]", margin + logoW / 2, margin + logoH / 2 + 3, { align: "center" });
+      drawPlaceholder();
     }
   } else {
-    doc.setDrawColor(200);
-    doc.setFillColor(245, 247, 250);
-    doc.rect(margin, margin, logoW, logoH, "FD");
-    doc.setFontSize(10);
-    doc.setTextColor(120);
-    doc.setFont("helvetica", "italic");
-    doc.text("[ LOGO ]", margin + logoW / 2, margin + logoH / 2 + 3, { align: "center" });
+    drawPlaceholder();
   }
 
   // ---------- Header line ----------
-  const headerY = margin + logoH + 28;
+  const headerY = margin + renderedLogoH + 28;
   doc.setDrawColor(220);
   doc.setLineWidth(0.5);
   doc.line(margin, headerY, pageWidth - margin, headerY);
