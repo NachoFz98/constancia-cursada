@@ -199,7 +199,7 @@ export async function generateCertificatePdf(data: CertificateData) {
   }
 
   // ---------- Header line ----------
-  const headerY = margin + logoH + 28;
+  const headerY = margin + renderedLogoH + 28;
   doc.setDrawColor(220);
   doc.setLineWidth(0.5);
   doc.line(margin, headerY, pageWidth - margin, headerY);
