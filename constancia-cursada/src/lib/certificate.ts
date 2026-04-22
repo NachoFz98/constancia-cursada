@@ -1,7 +1,8 @@
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import logoPng from "../assets/logo.png";
+// Forzamos la importación como un string Base64 para máxima compatibilidad.
+import logoPng from "../assets/logo.png?inline";
 
 export type Gender = "masculino" | "femenino";
 export type ProgramType = "curso" | "carrera" | "diplomatura";
@@ -91,8 +92,8 @@ export async function generateCertificatePdf(data: CertificateData) {
   const logoW = 130;
 
   try {
-    // Vite empaqueta la imagen y nos da una referencia directa (string base64 o similar).
-    // Esto es compatible con jsPDF y funciona en todos los entornos.
+    // La importación con `?inline` nos da un string Base64 que jsPDF usa directamente.
+    // Esto elimina todos los problemas de rutas y funciona siempre.
     doc.addImage(logoPng, "PNG", margin, margin, logoW, logoH);
   } catch (e) {
     console.warn("Error agregando el logo. Se usará un placeholder.", e);
