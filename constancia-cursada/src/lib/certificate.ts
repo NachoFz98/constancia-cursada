@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import logoPng from "../assets/logo.png";
 
 export type Gender = "masculino" | "femenino";
 export type ProgramType = "curso" | "carrera" | "diplomatura";
@@ -89,20 +90,12 @@ export async function generateCertificatePdf(data: CertificateData) {
   const logoH = 50;
   const logoW = 130;
 
-  // Construimos la ruta absoluta al logo en la carpeta `public`.
-  // Vite maneja `import.meta.env.BASE_URL` para que sea correcto en dev y prod.
-  const logoUrl = `${window.location.origin}${import.meta.env.BASE_URL}logo.png`;
-
   try {
-    // Usamos un truco para precargar la imagen, asegurando que jsPDF la tenga disponible.
-    const response = await fetch(logoUrl);
-    if (!response.ok) throw new Error("Logo not found");
-    const imageBlob = await response.blob();
-    const imageUrl = URL.createObjectURL(imageBlob);
-    doc.addImage(imageUrl, "PNG", margin, margin, logoW, logoH);
-    URL.revokeObjectURL(imageUrl); // Liberamos memoria
+    // Vite empaqueta la imagen y nos da una referencia directa (string base64 o similar).
+    // Esto es compatible con jsPDF y funciona en todos los entornos.
+    doc.addImage(logoPng, "PNG", margin, margin, logoW, logoH);
   } catch (e) {
-    console.warn("Error cargando el logo. Se usará un placeholder.", e);
+    console.warn("Error agregando el logo. Se usará un placeholder.", e);
     drawPlaceholder(doc, margin, margin, logoW, logoH);
   }
 
