@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import logoUrl from "/logo.svg";
 
 export type Gender = "masculino" | "femenino";
 export type ProgramType = "curso" | "carrera" | "diplomatura";
@@ -63,9 +64,8 @@ export function buildCertificateText(data: CertificateData) {
  */
 async function svgToBase64PNG(svgPath: string): Promise<string | null> {
   try {
-    // Aseguramos la ruta absoluta
-    const fullPath = svgPath.startsWith('http') ? svgPath : `${window.location.origin}${import.meta.env.BASE_URL}${svgPath.startsWith('/') ? svgPath.slice(1) : svgPath}`;
-    const response = await fetch(fullPath);
+    // Usamos la ruta que nos da Vite, que ya es correcta para dev y prod.
+    const response = await fetch(svgPath);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     
     const svgText = await response.text();
@@ -120,8 +120,8 @@ export async function generateCertificatePdf(data: CertificateData) {
   // ---------- Logo ----------
   const logoH = 50;
   const logoW = 130;
-  // Usamos ruta absoluta desde la raíz
-  const imageBase64 = await svgToBase64PNG("logo.svg");
+  // Usamos la URL del logo importada, Vite se encarga de la ruta correcta.
+  const imageBase64 = await svgToBase64PNG(logoUrl);
   
   if (imageBase64) {
     try {
