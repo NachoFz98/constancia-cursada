@@ -64,7 +64,7 @@ export function buildCertificateText(data: CertificateData) {
 async function svgToBase64PNG(svgPath: string): Promise<string | null> {
   try {
     // Aseguramos la ruta absoluta
-    const fullPath = svgPath.startsWith('http') ? svgPath : `${window.location.origin}${svgPath}`;
+    const fullPath = svgPath.startsWith('http') ? svgPath : `${window.location.origin}${import.meta.env.BASE_URL}${svgPath.startsWith('/') ? svgPath.slice(1) : svgPath}`;
     const response = await fetch(fullPath);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     
@@ -121,7 +121,7 @@ export async function generateCertificatePdf(data: CertificateData) {
   const logoH = 50;
   const logoW = 130;
   // Usamos ruta absoluta desde la raíz
-  const imageBase64 = await svgToBase64PNG("/logo.svg");
+  const imageBase64 = await svgToBase64PNG("logo.svg");
   
   if (imageBase64) {
     try {
