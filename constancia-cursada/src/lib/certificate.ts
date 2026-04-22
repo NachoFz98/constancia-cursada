@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import logoUrl from "/logo.svg";
+import logoSvgAsString from "/logo.svg?raw";
 
 export type Gender = "masculino" | "femenino";
 export type ProgramType = "curso" | "carrera" | "diplomatura";
@@ -18,8 +18,8 @@ export interface CertificateData {
   startDate: Date;
   endDate: Date;
   days: string[];
-  startTime: string; 
-  endTime: string; 
+  startTime: string;
+  endTime: string;
   issueDate: Date;
   directorName?: string;
   directorTitle?: string;
@@ -48,28 +48,35 @@ function joinDays(days: string[]) {
 
 export function buildCertificateText(data: CertificateData) {
   const studentLabel = data.gender === "femenino" ? "nuestra estudiante" : "nuestro estudiante";
-  let programLabel = data.programType === "carrera" ? "la carrera de" : data.programType === "diplomatura" ? "la diplomatura de" : "el curso de";
+  let programLabel =
+    data.programType === "carrera"
+      ? "la carrera de"
+      : data.programType === "diplomatura"
+      ? "la diplomatura de"
+      : "el curso de";
 
   const daysLower = data.days.map((d) => d.toLowerCase());
-  const daysText = data.programType === "diplomatura"
+  const daysText =
+    data.programType === "diplomatura"
       ? `con días de cursada los ${joinDays(daysLower)}`
       : `con día de cursada los ${daysLower[0] ?? ""}`;
 
-  return `Por medio de la presente, se deja constancia de que ${studentLabel} ${data.fullName}, con número de ${data.docType} ${data.docNumber}, realizó ${programLabel} ${data.programName} con fecha de inicio el ${formatLongDate(data.startDate)} y finalización el ${formatLongDate(data.endDate)}, ${daysText} en el horario de ${data.startTime} a ${data.endTime} hs (hora argentina).`;
+  return `Por medio de la presente, se deja constancia de que ${studentLabel} ${data.fullName}, con número de ${
+    data.docType
+  } ${data.docNumber}, realizó ${programLabel} ${data.programName} con fecha de inicio el ${
+    formatLongDate(data.startDate)
+  } y finalización el ${formatLongDate(data.endDate)}, ${daysText} en el horario de ${data.startTime} a ${
+    data.endTime
+  } hs (hora argentina).`;
 }
 
 /**
- * Convierte el SVG a PNG base64 usando la ruta absoluta del origen.
- * crossOrigin 'anonymous' es clave para evitar errores de seguridad.
+ * Convierte una cadena de texto SVG a una imagen PNG en formato base64.
+ * @param svgString El contenido del archivo SVG como string.
  */
-async function svgToBase64PNG(svgPath: string): Promise<string | null> {
+async function svgStringToBase64PNG(svgString: string): Promise<string | null> {
   try {
-    // Usamos la ruta que nos da Vite, que ya es correcta para dev y prod.
-    const response = await fetch(svgPath);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
-    const svgText = await response.text();
-    const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(svgBlob);
 
     return new Promise((resolve) => {
@@ -96,7 +103,7 @@ async function svgToBase64PNG(svgPath: string): Promise<string | null> {
       img.src = url;
     });
   } catch (e) {
-    console.warn("Error cargando logo:", e);
+    console.warn("Error convirtiendo SVG a PNG:", e);
     return null;
   }
 }
@@ -120,9 +127,10 @@ export async function generateCertificatePdf(data: CertificateData) {
   // ---------- Logo ----------
   const logoH = 50;
   const logoW = 130;
-  // Usamos la URL del logo importada, Vite se encarga de la ruta correcta.
-  const imageBase64 = await svgToBase64PNG(logoUrl);
-  
+
+  // Convertimos el SVG importado como texto a Base64 y lo agregamos al PDF.
+  const imageBase64 = await svgStringToBase64PNG(logoSvgAsString);
+
   if (imageBase64) {
     try {
       doc.addImage(imageBase64, "PNG", margin, margin, logoW, logoH);
@@ -165,7 +173,12 @@ export async function generateCertificatePdf(data: CertificateData) {
 
   // ---------- Closing ----------
   cursorY += 24;
-  doc.text("Se extiende la presente a pedido del interesado, a los efectos que estime corresponder.", margin, cursorY, { maxWidth: contentWidth, lineHeightFactor: 1.6 });
+  doc.text(
+    "Se extiende la presente a pedido del interesado, a los efectos que estime corresponder.",
+    margin,
+    cursorY,
+    { maxWidth: contentWidth, lineHeightFactor: 1.6 }
+  );
 
   // ---------- Signature ----------
   const sigY = pageHeight - margin - 130;
@@ -186,7 +199,10 @@ export async function generateCertificatePdf(data: CertificateData) {
   doc.text(data.companyAddress || COMPANY.address, margin, footerY - 18);
   const url = data.companyUrl || COMPANY.url;
   doc.setTextColor(30, 80, 180);
-  doc.textWithLink(url, pageWidth - margin, footerY - 18, { url: `https://${url.replace(/^https?:\/\//, "")}`, align: "right" });
+  doc.textWithLink(url, pageWidth - margin, footerY - 18, {
+    url: `https://${url.replace(/^https?:\/\//, "")}`,
+    align: "right",
+  });
 
   // ---------- Save ----------
   const safeEmail = data.email.trim().toLowerCase().replace(/[^a-z0-9@._-]/g, "_");
