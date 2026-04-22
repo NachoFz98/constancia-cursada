@@ -1,7 +1,6 @@
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import logoSvgAsString from "/logo.svg?raw";
 
 export type Gender = "masculino" | "femenino";
 export type ProgramType = "curso" | "carrera" | "diplomatura";
@@ -70,44 +69,6 @@ export function buildCertificateText(data: CertificateData) {
   } hs (hora argentina).`;
 }
 
-/**
- * Convierte una cadena de texto SVG a una imagen PNG en formato base64.
- * @param svgString El contenido del archivo SVG como string.
- */
-async function svgStringToBase64PNG(svgString: string): Promise<string | null> {
-  try {
-    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(svgBlob);
-
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = (img.naturalWidth || 500) * 2;
-        canvas.height = (img.naturalHeight || 200) * 2;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          URL.revokeObjectURL(url);
-          return resolve(null);
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const pngBase64 = canvas.toDataURL("image/png");
-        URL.revokeObjectURL(url);
-        resolve(pngBase64);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve(null);
-      };
-      img.src = url;
-    });
-  } catch (e) {
-    console.warn("Error convirtiendo SVG a PNG:", e);
-    return null;
-  }
-}
-
 function drawPlaceholder(doc: jsPDF, x: number, y: number, w: number, h: number) {
   doc.setDrawColor(200);
   doc.setFillColor(245, 247, 250);
@@ -128,16 +89,20 @@ export async function generateCertificatePdf(data: CertificateData) {
   const logoH = 50;
   const logoW = 130;
 
-  // Convertimos el SVG importado como texto a Base64 y lo agregamos al PDF.
-  const imageBase64 = await svgStringToBase64PNG(logoSvgAsString);
+  // Construimos la ruta absoluta al logo en la carpeta `public`.
+  // Vite maneja `import.meta.env.BASE_URL` para que sea correcto en dev y prod.
+  const logoUrl = `${window.location.origin}${import.meta.env.BASE_URL}logo.png`;
 
-  if (imageBase64) {
-    try {
-      doc.addImage(imageBase64, "PNG", margin, margin, logoW, logoH);
-    } catch (e) {
-      drawPlaceholder(doc, margin, margin, logoW, logoH);
-    }
-  } else {
+  try {
+    // Usamos un truco para precargar la imagen, asegurando que jsPDF la tenga disponible.
+    const response = await fetch(logoUrl);
+    if (!response.ok) throw new Error("Logo not found");
+    const imageBlob = await response.blob();
+    const imageUrl = URL.createObjectURL(imageBlob);
+    doc.addImage(imageUrl, "PNG", margin, margin, logoW, logoH);
+    URL.revokeObjectURL(imageUrl); // Liberamos memoria
+  } catch (e) {
+    console.warn("Error cargando el logo. Se usará un placeholder.", e);
     drawPlaceholder(doc, margin, margin, logoW, logoH);
   }
 
